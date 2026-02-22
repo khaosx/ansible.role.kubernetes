@@ -360,6 +360,6 @@ sudo iptables -F && sudo iptables -t nat -F && sudo iptables -t mangle -F && sud
 
 MIT
 
-## Author
+## Author Notes
 
-Generated with Claude Code
+Generated with the assitance of AI
