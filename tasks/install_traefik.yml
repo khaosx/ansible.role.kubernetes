@@ -1,0 +1,69 @@
+---
+
+- name: Check if Helm is installed
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Helm
+  ansible.builtin.shell: |
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  when: helm_check.rc != 0
+
+- name: Add Traefik Helm repository
+  ansible.builtin.command: >
+    helm repo add traefik https://traefik.github.io/charts
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+  failed_when: false
+
+- name: Update Helm repositories
+  ansible.builtin.command: helm repo update
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Check if Traefik is already installed
+  ansible.builtin.command: >
+    helm status traefik -n traefik
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: traefik_status
+  changed_when: false
+  failed_when: false
+
+- name: Create Traefik namespace
+  ansible.builtin.command: >
+    kubectl create namespace traefik
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: traefik_status.rc != 0
+  register: ns_create
+  failed_when: ns_create.rc != 0 and 'already exists' not in ns_create.stderr
+
+- name: Deploy Traefik
+  ansible.builtin.command: >
+    helm upgrade --install traefik traefik/traefik
+    --namespace traefik
+    --set service.spec.loadBalancerIP={{ kubernetes_traefik_loadbalancer_ip }}
+    --set ingressRoute.dashboard.enabled=true
+    --set ingressRoute.dashboard.entryPoints[0]=websecure
+    --set ingressRoute.dashboard.matchRule="Host(`{{ kubernetes_traefik_dashboard_host }}`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))"
+    --set ingressRoute.dashboard.tls.secretName={{ kubernetes_traefik_dashboard_tls_secret_name }}
+    --set web.redirections.entryPoint.to=websecure
+    --set web.redirections.entryPoint.scheme=https
+    --set ports.websecure.tls.enabled=true
+    --version {{ kubernetes_traefik_version }}
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Wait for Traefik to be ready
+  ansible.builtin.command: >
+    kubectl wait --namespace traefik
+    --for=condition=ready pod
+    --selector=app.kubernetes.io/name=traefik
+    --timeout=120s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false

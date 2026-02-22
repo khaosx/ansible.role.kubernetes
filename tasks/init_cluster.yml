@@ -1,0 +1,67 @@
+---
+
+- name: Check if cluster is already initialized
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_admin_conf
+
+- name: Initialize Kubernetes cluster
+  ansible.builtin.command: >
+    kubeadm init
+    --control-plane-endpoint "{{ kubernetes_control_plane_endpoint }}"
+    --pod-network-cidr "{{ kubernetes_pod_network_cidr }}"
+    --service-cidr "{{ kubernetes_service_cidr }}"
+    --upload-certs
+  register: kubeadm_init
+  when: not kubernetes_admin_conf.stat.exists
+
+- name: Create .kube directory for root
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: "0700"
+
+- name: Copy admin.conf to root's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: "0600"
+
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.kube"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: "0700"
+
+- name: Copy admin.conf to ansible user's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ ansible_user_dir }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: "0600"
+
+- name: Generate join command for control plane nodes
+  ansible.builtin.shell: |
+    CERT_KEY=$(kubeadm init phase upload-certs --upload-certs --kubeconfig /etc/kubernetes/admin.conf 2>/dev/null | tail -1)
+    JOIN_CMD=$(kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf 2>/dev/null)
+    echo "$JOIN_CMD --control-plane --certificate-key $CERT_KEY"
+  register: kubernetes_control_plane_join_command
+  changed_when: false
+
+- name: Generate join command for worker nodes
+  ansible.builtin.command: >
+    kubeadm token create --print-join-command
+    --kubeconfig /etc/kubernetes/admin.conf
+  register: kubernetes_worker_join_command
+  changed_when: false
+
+- name: Store join commands as facts
+  ansible.builtin.set_fact:
+    kubernetes_control_plane_join: "{{ kubernetes_control_plane_join_command.stdout }}"
+    kubernetes_worker_join: "{{ kubernetes_worker_join_command.stdout }}"
+    cacheable: true

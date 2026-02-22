@@ -1,0 +1,15 @@
+---
+# meta/main.yml — kubernetes
+
+galaxy_info:
+  author: khaosx
+  description: Deploy Kubernetes cluster using kubeadm with Cilium CNI
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+
+dependencies:
+  - role: ufw_profiles

@@ -1,0 +1,15 @@
+---
+
+- name: Check if node is already part of cluster
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubernetes_kubelet_conf
+
+- name: Get join command from primary control plane
+  ansible.builtin.set_fact:
+    kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_worker_join'] }}"
+  when: not kubernetes_kubelet_conf.stat.exists
+
+- name: Join worker node to cluster
+  ansible.builtin.command: "{{ kubernetes_join_command }}"
+  when: not kubernetes_kubelet_conf.stat.exists

@@ -1,0 +1,49 @@
+---
+
+- name: Check if node is already part of cluster
+  ansible.builtin.stat:
+    path: /etc/kubernetes/kubelet.conf
+  register: kubernetes_kubelet_conf
+
+# Note: VIP is only configured on primary control plane
+# Secondary control planes connect via the VIP but don't host it
+# For true HA, use keepalived or similar to failover the VIP
+
+- name: Get join command from primary control plane
+  ansible.builtin.set_fact:
+    kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_control_plane_join'] }}"
+  when: not kubernetes_kubelet_conf.stat.exists
+
+- name: Join control plane node to cluster
+  ansible.builtin.command: "{{ kubernetes_join_command }}"
+  when: not kubernetes_kubelet_conf.stat.exists
+
+- name: Create .kube directory for root
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    mode: "0700"
+
+- name: Copy admin.conf to root's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    remote_src: true
+    mode: "0600"
+
+- name: Create .kube directory for ansible user
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.kube"
+    state: directory
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: "0700"
+
+- name: Copy admin.conf to ansible user's .kube
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "{{ ansible_user_dir }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user_id }}"
+    group: "{{ ansible_user_gid }}"
+    mode: "0600"

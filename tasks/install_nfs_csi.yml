@@ -1,0 +1,47 @@
+---
+
+- name: Add NFS CSI Helm repository
+  ansible.builtin.command: >
+    helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+  failed_when: false
+
+- name: Update Helm repositories
+  ansible.builtin.command: helm repo update
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Check if NFS CSI is already installed
+  ansible.builtin.command: >
+    helm status csi-driver-nfs -n kube-system
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: nfs_csi_status
+  changed_when: false
+  failed_when: false
+
+- name: Install NFS CSI driver
+  ansible.builtin.command: >
+    helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs
+    --namespace kube-system
+    --version {{ kubernetes_nfs_csi_version }}
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: nfs_csi_status.rc != 0
+
+- name: Wait for NFS CSI controller to be ready
+  ansible.builtin.command: >
+    kubectl wait --namespace kube-system
+    --for=condition=ready pod
+    --selector=app.kubernetes.io/name=csi-driver-nfs
+    --timeout=120s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false
+  retries: 6
+  delay: 10
+  register: csi_ready
+  until: csi_ready.rc == 0

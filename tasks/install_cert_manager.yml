@@ -1,0 +1,148 @@
+---
+
+- name: Check if cert-manager namespace exists
+  ansible.builtin.command: >
+    kubectl get namespace cert-manager
+    --kubeconfig /etc/kubernetes/admin.conf
+  register: certmanager_namespace
+  changed_when: false
+  failed_when: false
+
+- name: Install cert-manager CRDs and components
+  ansible.builtin.command: >
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v{{ kubernetes_cert_manager_version }}/cert-manager.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: certmanager_namespace.rc != 0
+
+- name: Wait for cert-manager webhook to be ready
+  ansible.builtin.command: >
+    kubectl wait --namespace cert-manager
+    --for=condition=ready pod
+    --selector=app.kubernetes.io/component=webhook
+    --timeout=120s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false
+  retries: 6
+  delay: 10
+  register: webhook_ready
+  until: webhook_ready.rc == 0
+
+- name: Check if Cloudflare API token secret exists
+  ansible.builtin.command: >
+    kubectl get secret cloudflare-api-token -n cert-manager
+    --kubeconfig /etc/kubernetes/admin.conf
+  register: cf_secret
+  changed_when: false
+  failed_when: false
+
+- name: Create Cloudflare API token secret
+  ansible.builtin.command: >
+    kubectl create secret generic cloudflare-api-token
+    --from-literal=api-token={{ kubernetes_cert_manager_cloudflare_api_token }}
+    --namespace cert-manager
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: cf_secret.rc != 0
+  no_log: true
+
+- name: Create Let's Encrypt ClusterIssuer (staging)
+  ansible.builtin.copy:
+    dest: /tmp/letsencrypt-staging.yaml
+    mode: "0644"
+    content: |
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: letsencrypt-staging
+      spec:
+        acme:
+          server: https://acme-staging-v02.api.letsencrypt.org/directory
+          email: {{ kubernetes_cert_manager_email }}
+          privateKeySecretRef:
+            name: letsencrypt-staging-account-key
+          solvers:
+            - dns01:
+                cloudflare:
+                  apiTokenSecretRef:
+                    name: cloudflare-api-token
+                    key: api-token
+              selector:
+                dnsZones:
+                  - {{ kubernetes_cert_manager_dns_zone }}
+
+- name: Apply Let's Encrypt ClusterIssuer (staging)
+  ansible.builtin.command: >
+    kubectl apply -f /tmp/letsencrypt-staging.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+
+- name: Create Let's Encrypt ClusterIssuer (production)
+  ansible.builtin.copy:
+    dest: /tmp/letsencrypt-prod.yaml
+    mode: "0644"
+    content: |
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: letsencrypt-prod
+      spec:
+        acme:
+          server: https://acme-v02.api.letsencrypt.org/directory
+          email: {{ kubernetes_cert_manager_email }}
+          privateKeySecretRef:
+            name: letsencrypt-prod-account-key
+          solvers:
+            - dns01:
+                cloudflare:
+                  apiTokenSecretRef:
+                    name: cloudflare-api-token
+                    key: api-token
+              selector:
+                dnsZones:
+                  - {{ kubernetes_cert_manager_dns_zone }}
+
+- name: Apply Let's Encrypt ClusterIssuer (production)
+  ansible.builtin.command: >
+    kubectl apply -f /tmp/letsencrypt-prod.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+
+- name: Create Traefik dashboard certificate
+  ansible.builtin.copy:
+    dest: /tmp/traefik-dashboard-certificate.yaml
+    mode: "0644"
+    content: |
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: traefik-dashboard-tls
+        namespace: traefik
+      spec:
+        secretName: {{ kubernetes_traefik_dashboard_tls_secret_name }}
+        issuerRef:
+          name: {{ kubernetes_traefik_dashboard_certificate_issuer }}
+          kind: ClusterIssuer
+        dnsNames:
+          - {{ kubernetes_traefik_dashboard_host }}
+  when: kubernetes_traefik_dashboard_certificate_enabled | default(true)
+
+- name: Apply Traefik dashboard certificate
+  ansible.builtin.command: >
+    kubectl apply -f /tmp/traefik-dashboard-certificate.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: kubernetes_traefik_dashboard_certificate_enabled | default(true)
+
+- name: Wait for Traefik dashboard certificate
+  ansible.builtin.command: >
+    kubectl wait --namespace traefik
+    --for=condition=Ready certificate/traefik-dashboard-tls
+    --timeout=300s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false
+  when: kubernetes_traefik_dashboard_certificate_enabled | default(true)
+
+- name: Clean up temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/letsencrypt-staging.yaml
+    - /tmp/letsencrypt-prod.yaml
+    - /tmp/traefik-dashboard-certificate.yaml

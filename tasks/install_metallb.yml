@@ -1,0 +1,70 @@
+---
+
+- name: Check if MetalLB namespace exists
+  ansible.builtin.command: >
+    kubectl get namespace metallb-system
+    --kubeconfig /etc/kubernetes/admin.conf
+  register: metallb_namespace
+  changed_when: false
+  failed_when: false
+
+- name: Install MetalLB
+  ansible.builtin.command: >
+    kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v{{ kubernetes_metallb_version }}/config/manifests/metallb-native.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: metallb_namespace.rc != 0
+
+- name: Wait for MetalLB controller to be ready
+  ansible.builtin.command: >
+    kubectl wait --namespace metallb-system
+    --for=condition=ready pod
+    --selector=app=metallb,component=controller
+    --timeout=120s
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: metallb_namespace.rc != 0
+
+- name: Create MetalLB IPAddressPool
+  ansible.builtin.copy:
+    dest: /tmp/metallb-pool.yaml
+    mode: "0644"
+    content: |
+      apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: default-pool
+        namespace: metallb-system
+      spec:
+        addresses:
+          - {{ kubernetes_metallb_address_range }}
+
+- name: Apply MetalLB IPAddressPool
+  ansible.builtin.command: >
+    kubectl apply -f /tmp/metallb-pool.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+
+- name: Create MetalLB L2Advertisement
+  ansible.builtin.copy:
+    dest: /tmp/metallb-l2.yaml
+    mode: "0644"
+    content: |
+      apiVersion: metallb.io/v1beta1
+      kind: L2Advertisement
+      metadata:
+        name: default
+        namespace: metallb-system
+      spec:
+        ipAddressPools:
+          - default-pool
+
+- name: Apply MetalLB L2Advertisement
+  ansible.builtin.command: >
+    kubectl apply -f /tmp/metallb-l2.yaml
+    --kubeconfig /etc/kubernetes/admin.conf
+
+- name: Clean up temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/metallb-pool.yaml
+    - /tmp/metallb-l2.yaml

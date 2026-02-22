@@ -1,0 +1,101 @@
+---
+
+- name: Add Ceph CSI Helm repository
+  ansible.builtin.command: >
+    helm repo add ceph-csi https://ceph.github.io/csi-charts
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: helm_repo_add
+  changed_when: "'has been added' in helm_repo_add.stdout"
+  failed_when: false
+
+- name: Update Helm repositories
+  ansible.builtin.command: helm repo update
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: false
+
+- name: Create ceph-csi-rbd namespace
+  ansible.builtin.command: >
+    kubectl create namespace ceph-csi-rbd
+    --kubeconfig /etc/kubernetes/admin.conf
+  register: ns_create
+  failed_when: ns_create.rc != 0 and 'already exists' not in ns_create.stderr
+  changed_when: ns_create.rc == 0
+
+- name: Check if Ceph CSI RBD is already installed
+  ansible.builtin.command: >
+    helm status ceph-csi-rbd -n ceph-csi-rbd
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: ceph_csi_status
+  changed_when: false
+  failed_when: false
+
+- name: Create Ceph CSI values file
+  ansible.builtin.copy:
+    dest: /tmp/ceph-csi-values.yaml
+    mode: "0644"
+    content: |
+      csiConfig:
+        - clusterID: "{{ kubernetes_ceph_cluster_id }}"
+          monitors:
+            {% for mon in kubernetes_ceph_monitors %}
+            - "{{ mon }}"
+            {% endfor %}
+
+      storageClass:
+        create: true
+        name: ceph-rbd
+        clusterID: "{{ kubernetes_ceph_cluster_id }}"
+        pool: "{{ kubernetes_ceph_rbd_pool }}"
+        imageFeatures: "layering"
+        csi.storage.k8s.io/provisioner-secret-name: csi-rbd-secret
+        csi.storage.k8s.io/provisioner-secret-namespace: ceph-csi-rbd
+        csi.storage.k8s.io/controller-expand-secret-name: csi-rbd-secret
+        csi.storage.k8s.io/controller-expand-secret-namespace: ceph-csi-rbd
+        csi.storage.k8s.io/node-stage-secret-name: csi-rbd-secret
+        csi.storage.k8s.io/node-stage-secret-namespace: ceph-csi-rbd
+        reclaimPolicy: Delete
+        allowVolumeExpansion: true
+        mountOptions: []
+
+      secret:
+        create: true
+        name: csi-rbd-secret
+        userID: "{{ kubernetes_ceph_user }}"
+        userKey: "{{ kubernetes_ceph_user_key }}"
+
+- name: Install Ceph CSI RBD
+  ansible.builtin.command: >
+    helm install ceph-csi-rbd ceph-csi/ceph-csi-rbd
+    --namespace ceph-csi-rbd
+    --values /tmp/ceph-csi-values.yaml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: ceph_csi_status.rc != 0
+
+- name: Wait for Ceph CSI provisioner to be ready
+  ansible.builtin.command: >
+    kubectl wait --namespace ceph-csi-rbd
+    --for=condition=ready pod
+    --selector=app=ceph-csi-rbd
+    --timeout=120s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false
+  retries: 6
+  delay: 10
+  register: csi_ready
+  until: csi_ready.rc == 0
+
+- name: Clean up values file
+  ansible.builtin.file:
+    path: /tmp/ceph-csi-values.yaml
+    state: absent
+
+- name: Set ceph-rbd as default StorageClass
+  ansible.builtin.command: >
+    kubectl patch storageclass ceph-rbd
+    -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+    --kubeconfig /etc/kubernetes/admin.conf
+  when: kubernetes_ceph_default_storage_class | default(true)

@@ -1,0 +1,82 @@
+# -----------------------------------------------------------------------------
+# Ansible
+# -----------------------------------------------------------------------------
+*.retry
+*.log
+*.swp
+*.swo
+
+# Ansible temporary/cache files
+.ansible/
+.ansible_cache/
+.fact_cache/
+.retry/
+.galaxy_install_info/
+
+# Exclude installed collections (keep requirements.yml)
+collections/
+!collections/requirements.yml
+
+# Exclude downloaded roles
+# Uncomment the line below if you download 3rd party roles into ./roles
+# roles/*
+
+# -----------------------------------------------------------------------------
+# IDE / Editor (VS Code)
+# -----------------------------------------------------------------------------
+.vscode/
+# Uncomment the following lines if you want to share specific VS Code settings
+# !.vscode/settings.json
+# !.vscode/tasks.json
+# !.vscode/launch.json
+# !.vscode/extensions.json
+*.code-workspace
+.history/
+
+# JetBrains IDEs
+.idea/
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+**/*.pyc
+__pycache__/
+
+# -----------------------------------------------------------------------------
+# OS / System
+# -----------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# AWS Credentials
+# -----------------------------------------------------------------------------
+.aws/credentials
+
+# -----------------------------------------------------------------------------
+# Secrets & Credentials
+# -----------------------------------------------------------------------------
+# Prevent accidental commit of unencrypted secrets
+*.vault
+.vault_pass
+.ansible_vault
+secrets.yml
+vault.yml
+
+# -----------------------------------------------------------------------------
+# SSH Keys
+# -----------------------------------------------------------------------------
+# Ensure no private keys are ever committed
+id_rsa
+id_ed25519
+*.pem
+*.key
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+.git/
