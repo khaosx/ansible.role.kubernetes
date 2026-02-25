@@ -43,6 +43,13 @@
     state: present
     update_cache: true
 
+- name: Install Helm on control plane nodes
+  ansible.builtin.apt:
+    name: helm
+    state: present
+    update_cache: true
+  when: kubernetes_role == "control_plane"
+
 - name: Hold Kubernetes packages at current version
   ansible.builtin.dpkg_selections:
     name: "{{ item }}"
