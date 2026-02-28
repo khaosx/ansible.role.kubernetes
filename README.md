@@ -30,6 +30,12 @@ This role deploys a complete Kubernetes cluster with:
 - **NFS server**: For file storage (Synology, TrueNAS, etc.)
 - **Cloudflare**: For DNS-01 TLS challenges (domain must be hosted on Cloudflare)
 
+## Dependencies
+
+- Role: `ufw_profiles`
+- Collection: `community.general`
+- Collection: `ansible.posix`
+
 ## Role Variables
 
 ### Kubernetes Core
@@ -149,14 +155,14 @@ kubernetes_workers:
 
 ## Vault Variables Required
 
-Add these to your Ansible Vault:
+Define these in your Ansible Vault:
 
 ```yaml
-vault_kubernetes_keepalived_password: "your-vrrp-password"
-vault_kubernetes_ceph_user_key: "AQxxxx...your-ceph-key..."
-vault_configure_ssl_email: "admin@example.com"
-vault_configure_ssl_cloudflare_api_token: "your-cloudflare-api-token"
-vault_site_domain: "khaosx.io"
+vault_kubernetes_keepalived_password:
+vault_kubernetes_ceph_user_key:
+vault_configure_ssl_email:
+vault_configure_ssl_cloudflare_api_token:
+vault_site_domain:
 ```
 
 `kubernetes_traefik_loadbalancer_ip` must be within `kubernetes_metallb_address_range`.
@@ -168,21 +174,22 @@ Run specific components using tags:
 | Tag | Description |
 |-----|-------------|
 | `kubernetes` | Full role |
-| `firewall` | UFW configuration |
-| `prerequisites` | System prerequisites |
-| `containerd` | Container runtime |
-| `install` | Kubernetes packages |
-| `keepalived` | VIP failover |
-| `init` | Cluster initialization |
-| `join` | Node joining |
-| `cni` | Cilium CNI |
-| `metallb` | MetalLB load balancer |
-| `traefik` | Traefik ingress |
-| `cert-manager` | TLS certificate management |
-| `ceph` | Ceph CSI storage |
-| `nfs` | NFS CSI storage |
-| `storage` | All storage (ceph + nfs) |
-| `ha` | HA components (keepalived) |
+| `kubernetes_set_vars` | Fact loading and role variable prep |
+| `kubernetes_firewall` | UFW configuration |
+| `kubernetes_prerequisites` | System prerequisites |
+| `kubernetes_containerd` | Container runtime |
+| `kubernetes_install` | Kubernetes package install |
+| `kubernetes_keepalived` | VIP failover |
+| `kubernetes_init` | Cluster initialization |
+| `kubernetes_join` | Node joining |
+| `kubernetes_cni` | Cilium CNI |
+| `kubernetes_metallb` | MetalLB load balancer |
+| `kubernetes_traefik` | Traefik ingress |
+| `kubernetes_cert_manager` | TLS certificate management |
+| `kubernetes_ceph` | Ceph CSI storage |
+| `kubernetes_nfs` | NFS CSI storage |
+| `kubernetes_storage` | All storage (Ceph + NFS) |
+| `kubernetes_ha` | HA components (keepalived) |
 
 ### Examples
 
@@ -191,10 +198,10 @@ Run specific components using tags:
 ansible-playbook site.yml --tags kubernetes
 
 # Just storage drivers
-ansible-playbook site.yml --tags storage
+ansible-playbook site.yml --tags kubernetes_storage
 
 # Just ingress and TLS
-ansible-playbook site.yml --tags traefik,cert-manager
+ansible-playbook site.yml --tags kubernetes_traefik,kubernetes_cert_manager
 ```
 
 ## Playbook Configuration
@@ -208,9 +215,29 @@ The playbook must use `serial: 1` for proper node ordering:
   become: true
   serial: 1
   roles:
-    - role: kubernetes
+    - role: khaosx.homelab.kubernetes
       tags: [kubernetes, k8s]
 ```
+
+## Outbound Artifacts
+
+- System packages and services: `containerd`, `kubelet`, `kubeadm`, `kubectl`, optional `keepalived`
+- Kubernetes control-plane and node join state under `/etc/kubernetes/`
+- Generated kubeconfigs at `/root/.kube/config` and `{{ ansible_user_dir }}/.kube/config`
+- Installed cluster components (conditional): Cilium, MetalLB, Traefik, cert-manager, Ceph CSI, NFS CSI
+- Firewall rules applied through `ufw_profiles`
+
+## Idempotency
+
+true
+
+## Atomic
+
+false
+
+## Rollback
+
+No automated rollback is implemented. For rollback, reset nodes with `kubeadm reset` and redeploy.
 
 ## Architecture
 
@@ -362,4 +389,4 @@ MIT
 
 ## Author Notes
 
-Generated with the assitance of AI
+Generated with the assistance of AI

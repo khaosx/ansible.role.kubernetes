@@ -14,6 +14,7 @@
     --upload-certs
   register: kubeadm_init
   when: not kubernetes_admin_conf.stat.exists
+  changed_when: true
 
 - name: Create .kube directory for root
   ansible.builtin.file:
@@ -47,11 +48,14 @@
 
 - name: Generate join command for control plane nodes
   ansible.builtin.shell: |
+    set -o pipefail
     CERT_KEY=$(kubeadm init phase upload-certs --upload-certs --kubeconfig /etc/kubernetes/admin.conf 2>/dev/null | tail -1)
     JOIN_CMD=$(kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf 2>/dev/null)
     echo "$JOIN_CMD --control-plane --certificate-key $CERT_KEY"
   register: kubernetes_control_plane_join_command
   changed_when: false
+  args:
+    executable: /bin/bash
 
 - name: Generate join command for worker nodes
   ansible.builtin.command: >

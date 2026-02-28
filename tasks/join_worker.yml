@@ -13,3 +13,4 @@
 - name: Join worker node to cluster
   ansible.builtin.command: "{{ kubernetes_join_command }}"
   when: not kubernetes_kubelet_conf.stat.exists
+  changed_when: true

@@ -1,15 +1,13 @@
 ---
-# meta/main.yml — kubernetes
-
 galaxy_info:
+  role_name: kubernetes
+  namespace: khaosx
   author: khaosx
-  description: Deploy Kubernetes cluster using kubeadm with Cilium CNI
+  description: Deploy a kubeadm-based Kubernetes cluster with optional networking and storage add-ons.
   license: MIT
   min_ansible_version: "2.15"
   platforms:
     - name: Ubuntu
-      versions:
-        - noble
 
 dependencies:
   - role: ufw_profiles

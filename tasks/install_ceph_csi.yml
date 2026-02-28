@@ -74,6 +74,7 @@
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   when: ceph_csi_status.rc != 0
+  changed_when: true
 
 - name: Wait for Ceph CSI provisioner to be ready
   ansible.builtin.command: >
@@ -98,4 +99,6 @@
     kubectl patch storageclass ceph-rbd
     -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
     --kubeconfig /etc/kubernetes/admin.conf
+  register: ceph_default_sc_patch
+  changed_when: "'patched' in ceph_default_sc_patch.stdout"
   when: kubernetes_ceph_default_storage_class | default(true)

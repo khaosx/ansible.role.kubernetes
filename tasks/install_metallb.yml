@@ -12,6 +12,8 @@
   ansible.builtin.command: >
     kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v{{ kubernetes_metallb_version }}/config/manifests/metallb-native.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: metallb_install
+  changed_when: "'created' in metallb_install.stdout or 'configured' in metallb_install.stdout"
   when: metallb_namespace.rc != 0
 
 - name: Wait for MetalLB controller to be ready
@@ -22,6 +24,7 @@
     --timeout=120s
     --kubeconfig /etc/kubernetes/admin.conf
   when: metallb_namespace.rc != 0
+  changed_when: false
 
 - name: Create MetalLB IPAddressPool
   ansible.builtin.copy:
@@ -41,6 +44,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/metallb-pool.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: metallb_pool_apply
+  changed_when: "'created' in metallb_pool_apply.stdout or 'configured' in metallb_pool_apply.stdout"
 
 - name: Create MetalLB L2Advertisement
   ansible.builtin.copy:
@@ -60,6 +65,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/metallb-l2.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: metallb_l2_apply
+  changed_when: "'created' in metallb_l2_apply.stdout or 'configured' in metallb_l2_apply.stdout"
 
 - name: Clean up temp files
   ansible.builtin.file:

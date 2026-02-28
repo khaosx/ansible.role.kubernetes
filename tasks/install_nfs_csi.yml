@@ -32,6 +32,7 @@
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   when: nfs_csi_status.rc != 0
+  changed_when: true
 
 - name: Wait for NFS CSI controller to be ready
   ansible.builtin.command: >

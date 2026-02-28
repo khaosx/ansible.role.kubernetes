@@ -1,22 +1,17 @@
 ---
-# handlers/main.yml — kubernetes
-
-- name: Restart containerd
-  become: true
+- name: Kubernetes | Restart containerd
   ansible.builtin.systemd:
     name: containerd
     state: restarted
     daemon_reload: true
 
-- name: Restart kubelet
-  become: true
+- name: Kubernetes | Restart kubelet
   ansible.builtin.systemd:
     name: kubelet
     state: restarted
     daemon_reload: true
 
-- name: Restart keepalived
-  become: true
+- name: Kubernetes | Restart keepalived
   ansible.builtin.systemd:
     name: keepalived
     state: restarted

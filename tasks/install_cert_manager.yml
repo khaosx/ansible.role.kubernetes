@@ -12,6 +12,8 @@
   ansible.builtin.command: >
     kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v{{ kubernetes_cert_manager_version }}/cert-manager.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: cert_manager_install
+  changed_when: "'created' in cert_manager_install.stdout or 'configured' in cert_manager_install.stdout"
   when: certmanager_namespace.rc != 0
 
 - name: Wait for cert-manager webhook to be ready
@@ -43,6 +45,7 @@
     --kubeconfig /etc/kubernetes/admin.conf
   when: cf_secret.rc != 0
   no_log: true
+  changed_when: true
 
 - name: Create Let's Encrypt ClusterIssuer (staging)
   ansible.builtin.copy:
@@ -73,6 +76,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/letsencrypt-staging.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: letsencrypt_staging_apply
+  changed_when: "'created' in letsencrypt_staging_apply.stdout or 'configured' in letsencrypt_staging_apply.stdout"
 
 - name: Create Let's Encrypt ClusterIssuer (production)
   ansible.builtin.copy:
@@ -103,6 +108,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/letsencrypt-prod.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: letsencrypt_prod_apply
+  changed_when: "'created' in letsencrypt_prod_apply.stdout or 'configured' in letsencrypt_prod_apply.stdout"
 
 - name: Create Traefik dashboard certificate
   ansible.builtin.copy:
@@ -127,6 +134,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/traefik-dashboard-certificate.yaml
     --kubeconfig /etc/kubernetes/admin.conf
+  register: traefik_dashboard_cert_apply
+  changed_when: "'created' in traefik_dashboard_cert_apply.stdout or 'configured' in traefik_dashboard_cert_apply.stdout"
   when: kubernetes_traefik_dashboard_certificate_enabled | default(true)
 
 - name: Wait for Traefik dashboard certificate

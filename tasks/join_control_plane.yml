@@ -17,6 +17,7 @@
 - name: Join control plane node to cluster
   ansible.builtin.command: "{{ kubernetes_join_command }}"
   when: not kubernetes_kubelet_conf.stat.exists
+  changed_when: true
 
 - name: Create .kube directory for root
   ansible.builtin.file:

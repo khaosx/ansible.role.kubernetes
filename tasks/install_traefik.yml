@@ -31,6 +31,7 @@
   when: traefik_status.rc != 0
   register: ns_create
   failed_when: ns_create.rc != 0 and 'already exists' not in ns_create.stderr
+  changed_when: ns_create.rc == 0
 
 - name: Deploy Traefik
   ansible.builtin.command: >
@@ -47,6 +48,7 @@
     --version {{ kubernetes_traefik_version }}
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
+  changed_when: true
 
 - name: Wait for Traefik to be ready
   ansible.builtin.command: >

@@ -1,4 +1,7 @@
 ---
+- name: Set Vars | Load role variables
+  ansible.builtin.import_tasks: set_vars.yml
+  tags: [kubernetes, kubernetes_set_vars]
 
 - name: UFW | Configure firewall for control plane nodes
   ansible.builtin.import_role:
@@ -7,7 +10,7 @@
     ufw_profiles_catalog: "{{ kubernetes_ufw_profiles_catalog }}"
     ufw_profiles_allow_applications: "{{ kubernetes_ufw_allow_control_plane }}"
   when: kubernetes_role == "control_plane"
-  tags: [kubernetes, firewall]
+  tags: [kubernetes, kubernetes_firewall]
 
 - name: UFW | Configure firewall for worker nodes
   ansible.builtin.import_role:
@@ -16,50 +19,50 @@
     ufw_profiles_catalog: "{{ kubernetes_ufw_profiles_catalog }}"
     ufw_profiles_allow_applications: "{{ kubernetes_ufw_allow_worker }}"
   when: kubernetes_role == "worker"
-  tags: [kubernetes, firewall]
+  tags: [kubernetes, kubernetes_firewall]
 
 - name: Install prerequisites
   ansible.builtin.import_tasks: prerequisites.yml
-  tags: [kubernetes, prerequisites]
+  tags: [kubernetes, kubernetes_prerequisites]
 
 - name: Install containerd
   ansible.builtin.import_tasks: containerd.yml
-  tags: [kubernetes, containerd]
+  tags: [kubernetes, kubernetes_containerd]
 
 - name: Install Kubernetes packages
   ansible.builtin.import_tasks: install_kubernetes.yml
-  tags: [kubernetes, install]
+  tags: [kubernetes, kubernetes_install]
 
 - name: Install keepalived for VIP failover
   ansible.builtin.import_tasks: install_keepalived.yml
   when: kubernetes_role == "control_plane"
-  tags: [kubernetes, keepalived, ha]
+  tags: [kubernetes, kubernetes_keepalived, kubernetes_ha]
 
 - name: Initialize primary control plane
   ansible.builtin.import_tasks: init_cluster.yml
   when:
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
-  tags: [kubernetes, init]
+  tags: [kubernetes, kubernetes_init]
 
 - name: Join additional control plane nodes
   ansible.builtin.import_tasks: join_control_plane.yml
   when:
     - kubernetes_role == "control_plane"
     - inventory_hostname != kubernetes_primary_control_plane
-  tags: [kubernetes, join]
+  tags: [kubernetes, kubernetes_join]
 
 - name: Join worker nodes
   ansible.builtin.import_tasks: join_worker.yml
   when: kubernetes_role == "worker"
-  tags: [kubernetes, join]
+  tags: [kubernetes, kubernetes_join]
 
 - name: Install CNI plugin
   ansible.builtin.import_tasks: install_cni.yml
   when:
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
-  tags: [kubernetes, cni]
+  tags: [kubernetes, kubernetes_cni]
 
 - name: Install MetalLB load balancer
   ansible.builtin.import_tasks: install_metallb.yml
@@ -67,7 +70,7 @@
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
     - kubernetes_metallb_enabled | default(false)
-  tags: [kubernetes, metallb]
+  tags: [kubernetes, kubernetes_metallb]
 
 - name: Install Traefik ingress controller
   ansible.builtin.import_tasks: install_traefik.yml
@@ -75,7 +78,7 @@
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
     - kubernetes_traefik_enabled | default(false)
-  tags: [kubernetes, traefik]
+  tags: [kubernetes, kubernetes_traefik]
 
 - name: Install cert-manager
   ansible.builtin.import_tasks: install_cert_manager.yml
@@ -83,7 +86,7 @@
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
     - kubernetes_cert_manager_enabled | default(false)
-  tags: [kubernetes, cert-manager]
+  tags: [kubernetes, kubernetes_cert_manager]
 
 - name: Install Ceph CSI storage driver
   ansible.builtin.import_tasks: install_ceph_csi.yml
@@ -91,7 +94,7 @@
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
     - kubernetes_ceph_enabled | default(false)
-  tags: [kubernetes, ceph, storage]
+  tags: [kubernetes, kubernetes_ceph, kubernetes_storage]
 
 - name: Install NFS CSI driver
   ansible.builtin.import_tasks: install_nfs_csi.yml
@@ -99,4 +102,4 @@
     - kubernetes_role == "control_plane"
     - inventory_hostname == kubernetes_primary_control_plane
     - kubernetes_nfs_enabled | default(false)
-  tags: [kubernetes, nfs, storage]
+  tags: [kubernetes, kubernetes_nfs, kubernetes_storage]

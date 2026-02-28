@@ -23,7 +23,7 @@
     regexp: '^\s*SystemdCgroup\s*='
     line: '            SystemdCgroup = true'
     insertafter: '\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc\.options\]'
-  notify: Restart containerd
+  notify: Kubernetes | Restart containerd
 
 - name: Ensure containerd is enabled and started
   ansible.builtin.systemd:

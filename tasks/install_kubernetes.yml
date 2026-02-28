@@ -42,7 +42,7 @@
       - "kubectl={{ kubernetes_apt_version }}"
     state: present
     update_cache: true
-    allow_change_held_packages: true  
+    allow_change_held_packages: true
 
 - name: Check if Helm is installed
   ansible.builtin.command: which helm

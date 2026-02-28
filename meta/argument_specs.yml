@@ -1,0 +1,185 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy a kubeadm-based Kubernetes cluster with optional networking and storage add-ons.
+    options:
+      kubernetes_version:
+        description: Kubernetes upstream repository major/minor version.
+        type: str
+        default: "1.32"
+      kubernetes_apt_version:
+        description: Kubernetes package version selector for apt.
+        type: str
+        default: "1.32.*"
+      kubernetes_cluster_name:
+        description: Logical cluster name.
+        type: str
+        default: k8s-clst-01
+      kubernetes_pod_network_cidr:
+        description: Pod CIDR configured during kubeadm init.
+        type: str
+        default: 10.244.0.0/16
+      kubernetes_service_cidr:
+        description: Service CIDR configured during kubeadm init.
+        type: str
+        default: 10.96.0.0/12
+      kubernetes_control_plane_endpoint:
+        description: Control plane API endpoint advertised by kubeadm.
+        type: str
+        default: 10.0.20.246:6443
+      kubernetes_control_plane_vip:
+        description: Virtual IP address used by keepalived.
+        type: str
+        default: 10.0.20.246
+      kubernetes_keepalived_password:
+        description: VRRP authentication password for keepalived.
+        type: str
+      kubernetes_cni:
+        description: CNI provider to install.
+        type: str
+        default: cilium
+        choices:
+          - cilium
+          - calico
+          - flannel
+      kubernetes_cilium_version:
+        description: Cilium CLI/chart version.
+        type: str
+        default: "1.17.0"
+      kubernetes_metallb_enabled:
+        description: Enable MetalLB installation.
+        type: bool
+        default: true
+      kubernetes_metallb_version:
+        description: MetalLB manifest version.
+        type: str
+        default: "0.14.9"
+      kubernetes_metallb_address_range:
+        description: Address pool range used by MetalLB.
+        type: str
+        default: 10.0.20.30-10.0.20.39
+      kubernetes_traefik_enabled:
+        description: Enable Traefik installation.
+        type: bool
+        default: true
+      kubernetes_traefik_version:
+        description: Traefik chart version.
+        type: str
+        default: "34.3.0"
+      kubernetes_traefik_loadbalancer_ip:
+        description: Fixed LoadBalancer IP for Traefik service.
+        type: str
+        default: 10.0.20.30
+      kubernetes_cluster_domain:
+        description: Cluster DNS base domain.
+        type: str
+        default: khaosx.io
+      kubernetes_traefik_dashboard_host:
+        description: Hostname used for Traefik dashboard ingress route.
+        type: str
+        default: "traefik.{{ kubernetes_cluster_domain }}"
+      kubernetes_traefik_dashboard_tls_secret_name:
+        description: TLS secret name used by the Traefik dashboard route.
+        type: str
+        default: traefik-dashboard-tls
+      kubernetes_traefik_dashboard_tls_enabled:
+        description: Enable TLS at the dashboard route level.
+        type: bool
+        default: true
+      kubernetes_cert_manager_enabled:
+        description: Enable cert-manager installation.
+        type: bool
+        default: true
+      kubernetes_cert_manager_version:
+        description: cert-manager manifest version.
+        type: str
+        default: "1.17.1"
+      kubernetes_cert_manager_email:
+        description: Email address used for ACME issuer registrations.
+        type: str
+      kubernetes_cert_manager_cloudflare_api_token:
+        description: Cloudflare API token used for DNS-01 challenges.
+        type: str
+      kubernetes_cert_manager_dns_zone:
+        description: DNS zone used for ACME DNS-01 solver selection.
+        type: str
+      kubernetes_traefik_dashboard_certificate_enabled:
+        description: Enable issuing a cert-manager Certificate for the Traefik dashboard.
+        type: bool
+        default: true
+      kubernetes_traefik_dashboard_certificate_issuer:
+        description: ClusterIssuer name for the Traefik dashboard certificate.
+        type: str
+        default: letsencrypt-prod
+      kubernetes_nfs_enabled:
+        description: Enable NFS CSI installation.
+        type: bool
+        default: true
+      kubernetes_nfs_csi_version:
+        description: NFS CSI Helm chart version.
+        type: str
+        default: v4.10.0
+      kubernetes_ceph_enabled:
+        description: Enable Ceph CSI installation.
+        type: bool
+        default: true
+      kubernetes_ceph_cluster_id:
+        description: Ceph cluster ID.
+        type: str
+        default: 7ecb9951-45cd-4825-af85-d70faea45ea6
+      kubernetes_ceph_monitors:
+        description: Ceph monitor endpoints.
+        type: list
+        elements: str
+      kubernetes_ceph_rbd_pool:
+        description: Ceph pool used for RBD volumes.
+        type: str
+        default: rbd_data
+      kubernetes_ceph_user:
+        description: Ceph user ID for CSI.
+        type: str
+        default: kubernetes
+      kubernetes_ceph_user_key:
+        description: Ceph user key for CSI.
+        type: str
+      kubernetes_ceph_default_storage_class:
+        description: Annotate ceph-rbd as default storage class.
+        type: bool
+        default: true
+      kubernetes_containerd_version:
+        description: Containerd package version selector for apt.
+        type: str
+        default: "1.7.*"
+      kubernetes_primary_control_plane:
+        description: Inventory hostname of the first control plane node.
+        type: str
+        default: ctrl-01
+      kubernetes_role:
+        description: Node role used to branch control plane or worker tasks.
+        type: str
+        choices:
+          - control_plane
+          - worker
+      kubernetes_token_ttl:
+        description: kubeadm bootstrap token TTL.
+        type: str
+        default: 24h
+      kubernetes_ufw_profiles_catalog:
+        description: UFW profile definitions passed to ufw_profiles.
+        type: list
+        elements: dict
+      kubernetes_ufw_allow_control_plane:
+        description: UFW profile names enabled on control plane nodes.
+        type: list
+        elements: str
+      kubernetes_ufw_allow_worker:
+        description: UFW profile names enabled on worker nodes.
+        type: list
+        elements: str
+      kubernetes_kernel_modules:
+        description: Kernel modules loaded for Kubernetes networking.
+        type: list
+        elements: str
+      kubernetes_sysctl_settings:
+        description: Sysctl settings applied for Kubernetes networking.
+        type: dict
