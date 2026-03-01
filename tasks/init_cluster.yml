@@ -75,16 +75,25 @@
     port: 6443
     timeout: 120
 
+- name: Create localhost kubeconfig for join command generation
+  ansible.builtin.shell: |
+    sed 's|server: https://[^[:space:]]*|server: https://127.0.0.1:6443|g' \
+      /etc/kubernetes/admin.conf > /tmp/kubernetes-local.conf
+    chmod 600 /tmp/kubernetes-local.conf
+  changed_when: false
+
 - name: Generate join command for control plane nodes
   ansible.builtin.shell: |
     set -o pipefail
-    CERT_KEY=$(kubeadm init phase upload-certs --upload-certs --kubeconfig /etc/kubernetes/admin.conf | tail -1)
-    JOIN_CMD=$(kubeadm token create --print-join-command --kubeconfig /etc/kubernetes/admin.conf)
+    CERT_KEY=$(kubeadm init phase upload-certs --upload-certs \
+      --kubeconfig /tmp/kubernetes-local.conf | tail -1) || exit 1
+    JOIN_CMD=$(kubeadm token create --print-join-command \
+      --kubeconfig /tmp/kubernetes-local.conf) || exit 1
     echo "$JOIN_CMD --control-plane --certificate-key $CERT_KEY"
   register: kubernetes_control_plane_join_command
   changed_when: false
-  retries: 12
-  delay: 10
+  retries: 3
+  delay: 5
   until: kubernetes_control_plane_join_command.rc == 0
   args:
     executable: /bin/bash
@@ -92,12 +101,17 @@
 - name: Generate join command for worker nodes
   ansible.builtin.command: >
     kubeadm token create --print-join-command
-    --kubeconfig /etc/kubernetes/admin.conf
+    --kubeconfig /tmp/kubernetes-local.conf
   register: kubernetes_worker_join_command
   changed_when: false
-  retries: 12
-  delay: 10
+  retries: 3
+  delay: 5
   until: kubernetes_worker_join_command.rc == 0
+
+- name: Remove localhost kubeconfig
+  ansible.builtin.file:
+    path: /tmp/kubernetes-local.conf
+    state: absent
 
 - name: Store join commands as facts
   ansible.builtin.set_fact:
