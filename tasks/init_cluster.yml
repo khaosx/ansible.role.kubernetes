@@ -55,20 +55,6 @@
     group: "{{ ansible_user_gid }}"
     mode: "0600"
 
-- name: Restart keepalived to restore VIP after kubeadm network changes
-  ansible.builtin.systemd:
-    name: keepalived
-    state: restarted
-  when: not kubernetes_admin_conf.stat.exists
-
-- name: Wait for control plane VIP to be active after cluster initialization
-  ansible.builtin.shell: ip addr show | grep -q "{{ kubernetes_control_plane_vip }}"
-  changed_when: false
-  register: __kubernetes_vip_post_init
-  until: __kubernetes_vip_post_init.rc == 0
-  retries: 30
-  delay: 2
-
 - name: Wait for API server to accept connections after cluster initialization
   ansible.builtin.wait_for:
     host: 127.0.0.1
