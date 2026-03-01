@@ -5,6 +5,15 @@
     path: /etc/kubernetes/admin.conf
   register: kubernetes_admin_conf
 
+- name: Wait for control plane VIP to be active on interface
+  ansible.builtin.shell: ip addr show | grep -q "{{ kubernetes_control_plane_vip }}"
+  changed_when: false
+  register: __kubernetes_vip_check
+  until: __kubernetes_vip_check.rc == 0
+  retries: 15
+  delay: 2
+  when: not kubernetes_admin_conf.stat.exists
+
 - name: Initialize Kubernetes cluster
   ansible.builtin.command: >
     kubeadm init
