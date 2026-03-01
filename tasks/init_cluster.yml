@@ -62,6 +62,25 @@
     timeout: 300
   when: not kubernetes_admin_conf.stat.exists
 
+- name: Verify API server is accessible on existing cluster
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 6443
+    timeout: 10
+  when: kubernetes_admin_conf.stat.exists
+  register: __kubernetes_api_reachable
+  ignore_errors: true
+
+- name: Fail on inconsistent cluster state
+  ansible.builtin.fail:
+    msg: >
+      admin.conf exists but the API server is not accessible at 127.0.0.1:6443.
+      The cluster is in an inconsistent state. Run 'kubeadm reset -f && rm -rf
+      /etc/kubernetes /var/lib/etcd' on all nodes before re-running this role.
+  when:
+    - kubernetes_admin_conf.stat.exists
+    - __kubernetes_api_reachable is failed
+
 - name: Create localhost kubeconfig for join command generation
   ansible.builtin.shell: |
     sed 's|server: https://[^[:space:]]*|server: https://127.0.0.1:6443|g' \
