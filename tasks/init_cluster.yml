@@ -55,6 +55,12 @@
     group: "{{ ansible_user_gid }}"
     mode: "0600"
 
+- name: Wait for API server to accept connections after cluster initialization
+  ansible.builtin.wait_for:
+    host: "{{ kubernetes_control_plane_vip }}"
+    port: 6443
+    timeout: 120
+
 - name: Generate join command for control plane nodes
   ansible.builtin.shell: |
     set -o pipefail
