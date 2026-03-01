@@ -8,27 +8,27 @@
 
 - name: Allow VRRP protocol in UFW
   ansible.builtin.command: ufw allow proto vrrp from any to any
-  register: ufw_vrrp
-  changed_when: "'Rule added' in ufw_vrrp.stdout or 'Rules updated' in ufw_vrrp.stdout"
+  register: __kubernetes_ufw_vrrp
+  changed_when: "'Rule added' in __kubernetes_ufw_vrrp.stdout or 'Rules updated' in __kubernetes_ufw_vrrp.stdout"
   failed_when: false
 
 - name: Get network interface name from default route
   ansible.builtin.shell: |
     set -o pipefail
     ip route show default | grep -oP 'dev \K\S+' | head -1
-  register: kubernetes_detected_interface
+  register: __kubernetes_detected_interface
   changed_when: false
   args:
     executable: /bin/bash
 
 - name: Set interface fact
   ansible.builtin.set_fact:
-    kubernetes_vip_interface: "{{ kubernetes_detected_interface.stdout }}"
+    __kubernetes_vip_interface: "{{ __kubernetes_detected_interface.stdout }}"
 
 - name: Determine keepalived priority based on node
   ansible.builtin.set_fact:
-    keepalived_priority: "{{ 101 - groups['kubernetes_control_plane'].index(inventory_hostname) }}"
-    keepalived_state: "{{ 'MASTER' if inventory_hostname == kubernetes_primary_control_plane else 'BACKUP' }}"
+    __kubernetes_keepalived_priority: "{{ 101 - groups['kubernetes_control_plane'].index(inventory_hostname) }}"
+    __kubernetes_keepalived_state: "{{ 'MASTER' if inventory_hostname == kubernetes_primary_control_plane else 'BACKUP' }}"
 
 - name: Create keepalived health check script
   ansible.builtin.copy:
@@ -59,10 +59,10 @@
       }
 
       vrrp_instance VI_1 {
-        state {{ keepalived_state }}
-        interface {{ kubernetes_vip_interface }}
+        state {{ __kubernetes_keepalived_state }}
+        interface {{ __kubernetes_vip_interface }}
         virtual_router_id 51
-        priority {{ keepalived_priority }}
+        priority {{ __kubernetes_keepalived_priority }}
         advert_int 1
 
         authentication {
@@ -78,6 +78,7 @@
           check_apiserver
         }
       }
+  no_log: true
   notify: Kubernetes | Restart keepalived
 
 - name: Enable and start keepalived

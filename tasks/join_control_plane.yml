@@ -3,21 +3,29 @@
 - name: Check if node is already part of cluster
   ansible.builtin.stat:
     path: /etc/kubernetes/kubelet.conf
-  register: kubernetes_kubelet_conf
+  register: __kubernetes_kubelet_conf
 
-# Note: VIP is only configured on primary control plane
-# Secondary control planes connect via the VIP but don't host it
-# For true HA, use keepalived or similar to failover the VIP
+- name: Verify join command is available from primary control plane
+  ansible.builtin.assert:
+    that:
+      - hostvars[kubernetes_primary_control_plane]['kubernetes_control_plane_join'] is defined
+      - hostvars[kubernetes_primary_control_plane]['kubernetes_control_plane_join'] | length > 0
+    fail_msg: >-
+      Join command not available from primary control plane '{{ kubernetes_primary_control_plane }}'.
+      Ensure the primary has been initialized first and the playbook uses 'serial: 1'.
+  when: not __kubernetes_kubelet_conf.stat.exists
 
 - name: Get join command from primary control plane
   ansible.builtin.set_fact:
-    kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_control_plane_join'] }}"
-  when: not kubernetes_kubelet_conf.stat.exists
+    __kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_control_plane_join'] }}"
+  when: not __kubernetes_kubelet_conf.stat.exists
+  no_log: true
 
 - name: Join control plane node to cluster
-  ansible.builtin.command: "{{ kubernetes_join_command }}"
-  when: not kubernetes_kubelet_conf.stat.exists
+  ansible.builtin.command: "{{ __kubernetes_join_command }}"
+  when: not __kubernetes_kubelet_conf.stat.exists
   changed_when: true
+  no_log: true
 
 - name: Create .kube directory for root
   ansible.builtin.file:
@@ -34,17 +42,30 @@
 
 - name: Create .kube directory for ansible user
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.kube"
+    path: "{{ ansible_facts['user_dir'] }}/.kube"
     state: directory
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
     mode: "0700"
 
 - name: Copy admin.conf to ansible user's .kube
   ansible.builtin.copy:
     src: /etc/kubernetes/admin.conf
-    dest: "{{ ansible_user_dir }}/.kube/config"
+    dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     remote_src: true
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
     mode: "0600"
+
+- name: Wait for joined control plane node to be Ready
+  ansible.builtin.command: >
+    kubectl wait --for=condition=Ready
+    node/{{ inventory_hostname }}
+    --timeout=300s
+    --kubeconfig /etc/kubernetes/admin.conf
+  changed_when: false
+  register: __kubernetes_cp_ready
+  until: __kubernetes_cp_ready.rc == 0
+  retries: 3
+  delay: 10
+  when: not __kubernetes_kubelet_conf.stat.exists

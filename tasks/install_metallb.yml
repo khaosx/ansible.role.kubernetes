@@ -4,7 +4,7 @@
   ansible.builtin.command: >
     kubectl get namespace metallb-system
     --kubeconfig /etc/kubernetes/admin.conf
-  register: metallb_namespace
+  register: __kubernetes_metallb_namespace
   changed_when: false
   failed_when: false
 
@@ -12,9 +12,9 @@
   ansible.builtin.command: >
     kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v{{ kubernetes_metallb_version }}/config/manifests/metallb-native.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: metallb_install
-  changed_when: "'created' in metallb_install.stdout or 'configured' in metallb_install.stdout"
-  when: metallb_namespace.rc != 0
+  register: __kubernetes_metallb_install
+  changed_when: "'created' in __kubernetes_metallb_install.stdout or 'configured' in __kubernetes_metallb_install.stdout"
+  when: __kubernetes_metallb_namespace.rc != 0
 
 - name: Wait for MetalLB controller to be ready
   ansible.builtin.command: >
@@ -23,7 +23,7 @@
     --selector=app=metallb,component=controller
     --timeout=120s
     --kubeconfig /etc/kubernetes/admin.conf
-  when: metallb_namespace.rc != 0
+  when: __kubernetes_metallb_namespace.rc != 0
   changed_when: false
 
 - name: Create MetalLB IPAddressPool
@@ -44,8 +44,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/metallb-pool.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: metallb_pool_apply
-  changed_when: "'created' in metallb_pool_apply.stdout or 'configured' in metallb_pool_apply.stdout"
+  register: __kubernetes_metallb_pool
+  changed_when: "'created' in __kubernetes_metallb_pool.stdout or 'configured' in __kubernetes_metallb_pool.stdout"
 
 - name: Create MetalLB L2Advertisement
   ansible.builtin.copy:
@@ -65,8 +65,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/metallb-l2.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: metallb_l2_apply
-  changed_when: "'created' in metallb_l2_apply.stdout or 'configured' in metallb_l2_apply.stdout"
+  register: __kubernetes_metallb_l2
+  changed_when: "'created' in __kubernetes_metallb_l2.stdout or 'configured' in __kubernetes_metallb_l2.stdout"
 
 - name: Clean up temp files
   ansible.builtin.file:

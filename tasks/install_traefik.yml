@@ -5,8 +5,8 @@
     helm repo add traefik https://traefik.github.io/charts
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: helm_repo_add
-  changed_when: "'has been added' in helm_repo_add.stdout"
+  register: __kubernetes_traefik_helm_repo
+  changed_when: "'has been added' in __kubernetes_traefik_helm_repo.stdout"
   failed_when: false
 
 - name: Update Helm repositories
@@ -20,7 +20,7 @@
     helm status traefik -n traefik
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: traefik_status
+  register: __kubernetes_traefik_status
   changed_when: false
   failed_when: false
 
@@ -28,10 +28,10 @@
   ansible.builtin.command: >
     kubectl create namespace traefik
     --kubeconfig /etc/kubernetes/admin.conf
-  when: traefik_status.rc != 0
-  register: ns_create
-  failed_when: ns_create.rc != 0 and 'already exists' not in ns_create.stderr
-  changed_when: ns_create.rc == 0
+  when: __kubernetes_traefik_status.rc != 0
+  register: __kubernetes_traefik_ns
+  failed_when: __kubernetes_traefik_ns.rc != 0 and 'already exists' not in __kubernetes_traefik_ns.stderr
+  changed_when: __kubernetes_traefik_ns.rc == 0
 
 - name: Deploy Traefik
   ansible.builtin.command: >

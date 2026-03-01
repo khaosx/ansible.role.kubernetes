@@ -5,8 +5,8 @@
     helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: helm_repo_add
-  changed_when: "'has been added' in helm_repo_add.stdout"
+  register: __kubernetes_nfs_helm_repo
+  changed_when: "'has been added' in __kubernetes_nfs_helm_repo.stdout"
   failed_when: false
 
 - name: Update Helm repositories
@@ -20,7 +20,7 @@
     helm status csi-driver-nfs -n kube-system
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: nfs_csi_status
+  register: __kubernetes_nfs_csi_status
   changed_when: false
   failed_when: false
 
@@ -31,7 +31,7 @@
     --version {{ kubernetes_nfs_csi_version }}
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  when: nfs_csi_status.rc != 0
+  when: __kubernetes_nfs_csi_status.rc != 0
   changed_when: true
 
 - name: Wait for NFS CSI controller to be ready
@@ -44,5 +44,5 @@
   changed_when: false
   retries: 6
   delay: 10
-  register: csi_ready
-  until: csi_ready.rc == 0
+  register: __kubernetes_nfs_csi_ready
+  until: __kubernetes_nfs_csi_ready.rc == 0

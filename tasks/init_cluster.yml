@@ -3,7 +3,7 @@
 - name: Check if cluster is already initialized
   ansible.builtin.stat:
     path: /etc/kubernetes/admin.conf
-  register: kubernetes_admin_conf
+  register: __kubernetes_admin_conf
 
 - name: Wait for control plane VIP to be active on interface
   ansible.builtin.shell: ip addr show | grep -q "{{ kubernetes_control_plane_vip }}"
@@ -12,7 +12,7 @@
   until: __kubernetes_vip_check.rc == 0
   retries: 15
   delay: 2
-  when: not kubernetes_admin_conf.stat.exists
+  when: not __kubernetes_admin_conf.stat.exists
 
 - name: Initialize Kubernetes cluster
   ansible.builtin.command: >
@@ -21,8 +21,8 @@
     --pod-network-cidr "{{ kubernetes_pod_network_cidr }}"
     --service-cidr "{{ kubernetes_service_cidr }}"
     --upload-certs
-  register: kubeadm_init
-  when: not kubernetes_admin_conf.stat.exists
+  register: __kubernetes_kubeadm_init
+  when: not __kubernetes_admin_conf.stat.exists
   changed_when: true
 
 - name: Create .kube directory for root
@@ -40,36 +40,38 @@
 
 - name: Create .kube directory for ansible user
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.kube"
+    path: "{{ ansible_facts['user_dir'] }}/.kube"
     state: directory
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
     mode: "0700"
 
 - name: Copy admin.conf to ansible user's .kube
   ansible.builtin.copy:
     src: /etc/kubernetes/admin.conf
-    dest: "{{ ansible_user_dir }}/.kube/config"
+    dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     remote_src: true
-    owner: "{{ ansible_user_id }}"
-    group: "{{ ansible_user_gid }}"
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: "{{ ansible_facts['user_gid'] }}"
     mode: "0600"
 
-- name: Wait for API server to accept connections after cluster initialization
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: 6443
-    timeout: 300
-  when: not kubernetes_admin_conf.stat.exists
+- name: Wait for API server to become responsive after cluster initialization
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes
+  register: __kubernetes_api_ready
+  until: __kubernetes_api_ready.rc == 0
+  retries: 60
+  delay: 10
+  changed_when: false
+  when: not __kubernetes_admin_conf.stat.exists
 
 - name: Verify API server is accessible on existing cluster
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: 6443
     timeout: 10
-  when: kubernetes_admin_conf.stat.exists
+  when: __kubernetes_admin_conf.stat.exists
   register: __kubernetes_api_reachable
-  ignore_errors: true
+  ignore_errors: true  # noqa: ignore-errors — checked by fail task below
 
 - name: Fail on inconsistent cluster state
   ansible.builtin.fail:
@@ -78,7 +80,7 @@
       The cluster is in an inconsistent state. Run 'kubeadm reset -f && rm -rf
       /etc/kubernetes /var/lib/etcd' on all nodes before re-running this role.
   when:
-    - kubernetes_admin_conf.stat.exists
+    - __kubernetes_admin_conf.stat.exists
     - __kubernetes_api_reachable is failed
 
 - name: Create localhost kubeconfig for join command generation
@@ -94,25 +96,29 @@
     CERT_KEY=$(kubeadm init phase upload-certs --upload-certs \
       --kubeconfig /tmp/kubernetes-local.conf | tail -1) || exit 1
     JOIN_CMD=$(kubeadm token create --print-join-command \
+      --ttl {{ kubernetes_token_ttl }} \
       --kubeconfig /tmp/kubernetes-local.conf) || exit 1
     echo "$JOIN_CMD --control-plane --certificate-key $CERT_KEY"
-  register: kubernetes_control_plane_join_command
+  register: __kubernetes_cp_join_command
   changed_when: false
   retries: 3
   delay: 5
-  until: kubernetes_control_plane_join_command.rc == 0
+  until: __kubernetes_cp_join_command.rc == 0
+  no_log: true
   args:
     executable: /bin/bash
 
 - name: Generate join command for worker nodes
   ansible.builtin.command: >
     kubeadm token create --print-join-command
+    --ttl {{ kubernetes_token_ttl }}
     --kubeconfig /tmp/kubernetes-local.conf
-  register: kubernetes_worker_join_command
+  register: __kubernetes_worker_join_command
   changed_when: false
   retries: 3
   delay: 5
-  until: kubernetes_worker_join_command.rc == 0
+  until: __kubernetes_worker_join_command.rc == 0
+  no_log: true
 
 - name: Remove localhost kubeconfig
   ansible.builtin.file:
@@ -121,6 +127,7 @@
 
 - name: Store join commands as facts
   ansible.builtin.set_fact:
-    kubernetes_control_plane_join: "{{ kubernetes_control_plane_join_command.stdout }}"
-    kubernetes_worker_join: "{{ kubernetes_worker_join_command.stdout }}"
+    kubernetes_control_plane_join: "{{ __kubernetes_cp_join_command.stdout }}"
+    kubernetes_worker_join: "{{ __kubernetes_worker_join_command.stdout }}"
     cacheable: true
+  no_log: true

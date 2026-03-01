@@ -5,8 +5,8 @@
     helm repo add ceph-csi https://ceph.github.io/csi-charts
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: helm_repo_add
-  changed_when: "'has been added' in helm_repo_add.stdout"
+  register: __kubernetes_ceph_helm_repo
+  changed_when: "'has been added' in __kubernetes_ceph_helm_repo.stdout"
   failed_when: false
 
 - name: Update Helm repositories
@@ -19,23 +19,23 @@
   ansible.builtin.command: >
     kubectl create namespace ceph-csi-rbd
     --kubeconfig /etc/kubernetes/admin.conf
-  register: ns_create
-  failed_when: ns_create.rc != 0 and 'already exists' not in ns_create.stderr
-  changed_when: ns_create.rc == 0
+  register: __kubernetes_ceph_ns
+  failed_when: __kubernetes_ceph_ns.rc != 0 and 'already exists' not in __kubernetes_ceph_ns.stderr
+  changed_when: __kubernetes_ceph_ns.rc == 0
 
 - name: Check if Ceph CSI RBD is already installed
   ansible.builtin.command: >
     helm status ceph-csi-rbd -n ceph-csi-rbd
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  register: ceph_csi_status
+  register: __kubernetes_ceph_csi_status
   changed_when: false
   failed_when: false
 
 - name: Create Ceph CSI values file
   ansible.builtin.copy:
     dest: /tmp/ceph-csi-values.yaml
-    mode: "0644"
+    mode: "0600"
     content: |
       csiConfig:
         - clusterID: "{{ kubernetes_ceph_cluster_id }}"
@@ -65,6 +65,7 @@
         name: csi-rbd-secret
         userID: "{{ kubernetes_ceph_user }}"
         userKey: "{{ kubernetes_ceph_user_key }}"
+  no_log: true
 
 - name: Install Ceph CSI RBD
   ansible.builtin.command: >
@@ -73,7 +74,7 @@
     --values /tmp/ceph-csi-values.yaml
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
-  when: ceph_csi_status.rc != 0
+  when: __kubernetes_ceph_csi_status.rc != 0
   changed_when: true
 
 - name: Wait for Ceph CSI provisioner to be ready
@@ -86,8 +87,8 @@
   changed_when: false
   retries: 6
   delay: 10
-  register: csi_ready
-  until: csi_ready.rc == 0
+  register: __kubernetes_ceph_csi_ready
+  until: __kubernetes_ceph_csi_ready.rc == 0
 
 - name: Clean up values file
   ansible.builtin.file:
@@ -99,6 +100,6 @@
     kubectl patch storageclass ceph-rbd
     -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
     --kubeconfig /etc/kubernetes/admin.conf
-  register: ceph_default_sc_patch
-  changed_when: "'patched' in ceph_default_sc_patch.stdout"
+  register: __kubernetes_ceph_sc_patch
+  changed_when: "'patched' in __kubernetes_ceph_sc_patch.stdout"
   when: kubernetes_ceph_default_storage_class | default(true)

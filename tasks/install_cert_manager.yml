@@ -4,7 +4,7 @@
   ansible.builtin.command: >
     kubectl get namespace cert-manager
     --kubeconfig /etc/kubernetes/admin.conf
-  register: certmanager_namespace
+  register: __kubernetes_certmanager_ns
   changed_when: false
   failed_when: false
 
@@ -12,9 +12,9 @@
   ansible.builtin.command: >
     kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v{{ kubernetes_cert_manager_version }}/cert-manager.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: cert_manager_install
-  changed_when: "'created' in cert_manager_install.stdout or 'configured' in cert_manager_install.stdout"
-  when: certmanager_namespace.rc != 0
+  register: __kubernetes_certmanager_install
+  changed_when: "'created' in __kubernetes_certmanager_install.stdout or 'configured' in __kubernetes_certmanager_install.stdout"
+  when: __kubernetes_certmanager_ns.rc != 0
 
 - name: Wait for cert-manager webhook to be ready
   ansible.builtin.command: >
@@ -26,14 +26,14 @@
   changed_when: false
   retries: 6
   delay: 10
-  register: webhook_ready
-  until: webhook_ready.rc == 0
+  register: __kubernetes_webhook_ready
+  until: __kubernetes_webhook_ready.rc == 0
 
 - name: Check if Cloudflare API token secret exists
   ansible.builtin.command: >
     kubectl get secret cloudflare-api-token -n cert-manager
     --kubeconfig /etc/kubernetes/admin.conf
-  register: cf_secret
+  register: __kubernetes_cf_secret
   changed_when: false
   failed_when: false
 
@@ -43,7 +43,7 @@
     --from-literal=api-token={{ kubernetes_cert_manager_cloudflare_api_token }}
     --namespace cert-manager
     --kubeconfig /etc/kubernetes/admin.conf
-  when: cf_secret.rc != 0
+  when: __kubernetes_cf_secret.rc != 0
   no_log: true
   changed_when: true
 
@@ -76,8 +76,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/letsencrypt-staging.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: letsencrypt_staging_apply
-  changed_when: "'created' in letsencrypt_staging_apply.stdout or 'configured' in letsencrypt_staging_apply.stdout"
+  register: __kubernetes_le_staging
+  changed_when: "'created' in __kubernetes_le_staging.stdout or 'configured' in __kubernetes_le_staging.stdout"
 
 - name: Create Let's Encrypt ClusterIssuer (production)
   ansible.builtin.copy:
@@ -108,8 +108,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/letsencrypt-prod.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: letsencrypt_prod_apply
-  changed_when: "'created' in letsencrypt_prod_apply.stdout or 'configured' in letsencrypt_prod_apply.stdout"
+  register: __kubernetes_le_prod
+  changed_when: "'created' in __kubernetes_le_prod.stdout or 'configured' in __kubernetes_le_prod.stdout"
 
 - name: Create Traefik dashboard certificate
   ansible.builtin.copy:
@@ -134,8 +134,8 @@
   ansible.builtin.command: >
     kubectl apply -f /tmp/traefik-dashboard-certificate.yaml
     --kubeconfig /etc/kubernetes/admin.conf
-  register: traefik_dashboard_cert_apply
-  changed_when: "'created' in traefik_dashboard_cert_apply.stdout or 'configured' in traefik_dashboard_cert_apply.stdout"
+  register: __kubernetes_traefik_cert
+  changed_when: "'created' in __kubernetes_traefik_cert.stdout or 'configured' in __kubernetes_traefik_cert.stdout"
   when: kubernetes_traefik_dashboard_certificate_enabled | default(true)
 
 - name: Wait for Traefik dashboard certificate

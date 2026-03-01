@@ -3,14 +3,40 @@
 - name: Check if node is already part of cluster
   ansible.builtin.stat:
     path: /etc/kubernetes/kubelet.conf
-  register: kubernetes_kubelet_conf
+  register: __kubernetes_kubelet_conf
+
+- name: Verify join command is available from primary control plane
+  ansible.builtin.assert:
+    that:
+      - hostvars[kubernetes_primary_control_plane]['kubernetes_worker_join'] is defined
+      - hostvars[kubernetes_primary_control_plane]['kubernetes_worker_join'] | length > 0
+    fail_msg: >-
+      Worker join command not available from primary control plane '{{ kubernetes_primary_control_plane }}'.
+      Ensure the primary has been initialized first and the playbook uses 'serial: 1'.
+  when: not __kubernetes_kubelet_conf.stat.exists
 
 - name: Get join command from primary control plane
   ansible.builtin.set_fact:
-    kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_worker_join'] }}"
-  when: not kubernetes_kubelet_conf.stat.exists
+    __kubernetes_join_command: "{{ hostvars[kubernetes_primary_control_plane]['kubernetes_worker_join'] }}"
+  when: not __kubernetes_kubelet_conf.stat.exists
+  no_log: true
 
 - name: Join worker node to cluster
-  ansible.builtin.command: "{{ kubernetes_join_command }}"
-  when: not kubernetes_kubelet_conf.stat.exists
+  ansible.builtin.command: "{{ __kubernetes_join_command }}"
+  when: not __kubernetes_kubelet_conf.stat.exists
   changed_when: true
+  no_log: true
+
+- name: Wait for joined worker node to be Ready
+  ansible.builtin.command: >
+    kubectl wait --for=condition=Ready
+    node/{{ inventory_hostname }}
+    --timeout=300s
+    --kubeconfig /etc/kubernetes/admin.conf
+  delegate_to: "{{ kubernetes_primary_control_plane }}"
+  changed_when: false
+  register: __kubernetes_worker_ready
+  until: __kubernetes_worker_ready.rc == 0
+  retries: 3
+  delay: 10
+  when: not __kubernetes_kubelet_conf.stat.exists

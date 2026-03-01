@@ -46,7 +46,7 @@
 
 - name: Check if Helm is installed
   ansible.builtin.command: which helm
-  register: kubernetes_helm_check
+  register: __kubernetes_helm_check
   changed_when: false
   failed_when: false
   when: kubernetes_role == "control_plane"
@@ -58,7 +58,7 @@
     mode: "0755"
   when:
     - kubernetes_role == "control_plane"
-    - kubernetes_helm_check.rc != 0
+    - __kubernetes_helm_check.rc != 0
 
 - name: Run Helm installer script on control plane nodes
   ansible.builtin.command: /bin/bash /tmp/get-helm-3.sh
@@ -66,7 +66,7 @@
     creates: /usr/local/bin/helm
   when:
     - kubernetes_role == "control_plane"
-    - kubernetes_helm_check.rc != 0
+    - __kubernetes_helm_check.rc != 0
 
 - name: Hold Kubernetes packages at current version
   ansible.builtin.dpkg_selections:

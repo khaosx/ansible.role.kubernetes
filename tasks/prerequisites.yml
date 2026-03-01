@@ -32,3 +32,5 @@
     sysctl_file: /etc/sysctl.d/99-kubernetes.conf
     reload: true
   loop: "{{ kubernetes_sysctl_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
