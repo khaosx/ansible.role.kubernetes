@@ -59,7 +59,8 @@
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: 6443
-    timeout: 120
+    timeout: 300
+  when: not kubernetes_admin_conf.stat.exists
 
 - name: Create localhost kubeconfig for join command generation
   ansible.builtin.shell: |
