@@ -35,11 +35,22 @@
 - name: Install Cilium CNI
   ansible.builtin.command: >
     cilium install
-    --version {{ kubernetes_cilium_version }}
+    --set socketLB.hostNamespaceOnly=true
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   when: __kubernetes_cilium_deployment.rc != 0
   changed_when: true
+
+- name: Wait for Cilium and control plane to stabilize after eBPF load
+  ansible.builtin.pause:
+    seconds: 30
+  when: __kubernetes_cilium_deployment.rc != 0
+
+- name: Restart kubelet to reset any CrashLoopBackOff from eBPF transition
+  ansible.builtin.systemd:
+    name: kubelet
+    state: restarted
+  when: __kubernetes_cilium_deployment.rc != 0
 
 - name: Restart keepalived after Cilium eBPF takeover
   ansible.builtin.systemd:
@@ -59,7 +70,7 @@
   ansible.builtin.wait_for:
     host: "{{ kubernetes_control_plane_vip }}"
     port: 6443
-    timeout: 60
+    timeout: 120
 
 - name: Wait for Cilium to be ready
   ansible.builtin.command: cilium status --wait --wait-duration 120s

@@ -28,7 +28,6 @@
   ansible.builtin.command: >
     helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs
     --namespace kube-system
-    --version {{ kubernetes_nfs_csi_version }}
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   when: __kubernetes_nfs_csi_status.rc != 0

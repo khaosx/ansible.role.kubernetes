@@ -8,9 +8,16 @@
   changed_when: false
   failed_when: false
 
+- name: Get latest cert-manager release
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/cert-manager/cert-manager/releases/latest
+    return_content: true
+  register: __kubernetes_certmanager_release
+  when: __kubernetes_certmanager_ns.rc != 0
+
 - name: Install cert-manager CRDs and components
   ansible.builtin.command: >
-    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v{{ kubernetes_cert_manager_version }}/cert-manager.yaml
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ __kubernetes_certmanager_release.json.tag_name }}/cert-manager.yaml
     --kubeconfig /etc/kubernetes/admin.conf
   register: __kubernetes_certmanager_install
   changed_when: "'created' in __kubernetes_certmanager_install.stdout or 'configured' in __kubernetes_certmanager_install.stdout"

@@ -45,7 +45,6 @@
     --set web.redirections.entryPoint.to=websecure
     --set web.redirections.entryPoint.scheme=https
     --set ports.websecure.tls.enabled=true
-    --version {{ kubernetes_traefik_version }}
   environment:
     KUBECONFIG: /etc/kubernetes/admin.conf
   changed_when: true

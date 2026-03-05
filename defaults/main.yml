@@ -2,9 +2,9 @@
 # defaults/main.yml — kubernetes
 # Defaults for Kubernetes cluster deployment via kubeadm
 
-# Kubernetes version
-kubernetes_version: "1.32"
-kubernetes_apt_version: "1.32.*"
+# Kubernetes minor version (determines apt repo branch)
+# Leave empty to auto-detect latest stable
+kubernetes_version: ""
 
 # Cluster settings
 kubernetes_cluster_name: "k8s-clst-01"
@@ -20,16 +20,13 @@ kubernetes_keepalived_password: "{{ vault_kubernetes_keepalived_password }}"
 
 # CNI plugin: cilium, calico, or flannel
 kubernetes_cni: "cilium"
-kubernetes_cilium_version: "1.17.0"
 
 # MetalLB load balancer
 kubernetes_metallb_enabled: true
-kubernetes_metallb_version: "0.14.9"
 kubernetes_metallb_address_range: "10.0.20.30-10.0.20.39"
 
 # Traefik ingress controller
 kubernetes_traefik_enabled: true
-kubernetes_traefik_version: "34.3.0"
 kubernetes_traefik_loadbalancer_ip: "10.0.20.30"
 kubernetes_cluster_domain: "khaosx.io"
 kubernetes_traefik_dashboard_host: "traefik.{{ kubernetes_cluster_domain }}"
@@ -38,7 +35,6 @@ kubernetes_traefik_dashboard_tls_enabled: true
 
 # cert-manager
 kubernetes_cert_manager_enabled: true
-kubernetes_cert_manager_version: "1.17.1"
 kubernetes_cert_manager_email: "{{ vault_configure_ssl_email }}"
 kubernetes_cert_manager_cloudflare_api_token: "{{ vault_configure_ssl_cloudflare_api_token }}"
 kubernetes_cert_manager_dns_zone: "{{ vault_site_domain }}"
@@ -47,7 +43,6 @@ kubernetes_traefik_dashboard_certificate_issuer: "letsencrypt-prod"
 
 # NFS CSI driver
 kubernetes_nfs_enabled: true
-kubernetes_nfs_csi_version: "v4.10.0"
 
 # Ceph CSI storage
 kubernetes_ceph_enabled: true
@@ -60,9 +55,6 @@ kubernetes_ceph_rbd_pool: "rbd_data"
 kubernetes_ceph_user: "kubernetes"
 kubernetes_ceph_user_key: "{{ vault_kubernetes_ceph_user_key }}"
 kubernetes_ceph_default_storage_class: true
-
-# Containerd settings
-kubernetes_containerd_version: "1.7.*"
 
 # First control plane node (used for init)
 kubernetes_primary_control_plane: "ctrl-01"

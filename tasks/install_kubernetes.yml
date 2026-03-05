@@ -37,10 +37,10 @@
 - name: Install Kubernetes packages
   ansible.builtin.apt:
     name:
-      - "kubelet={{ kubernetes_apt_version }}"
-      - "kubeadm={{ kubernetes_apt_version }}"
-      - "kubectl={{ kubernetes_apt_version }}"
-    state: present
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: latest
     update_cache: true
     allow_change_held_packages: true
 

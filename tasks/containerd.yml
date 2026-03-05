@@ -2,8 +2,8 @@
 
 - name: Install containerd
   ansible.builtin.apt:
-    name: "containerd={{ kubernetes_containerd_version }}"
-    state: present
+    name: containerd
+    state: latest
     update_cache: true
 
 - name: Create containerd config directory
@@ -25,11 +25,20 @@
     insertafter: '\[plugins\."io\.containerd\.grpc\.v1\.cri"\.containerd\.runtimes\.runc\.options\]'
   notify: Kubernetes | Restart containerd
 
+- name: Get kubeadm expected pause image
+  ansible.builtin.command: kubeadm config images list
+  register: __kubernetes_kubeadm_images
+  changed_when: false
+
+- name: Set sandbox image fact
+  ansible.builtin.set_fact:
+    __kubernetes_pause_image: "{{ __kubernetes_kubeadm_images.stdout_lines | select('match', '.*pause.*') | first }}"
+
 - name: Set correct sandbox image for kubeadm compatibility
   ansible.builtin.lineinfile:
     path: /etc/containerd/config.toml
     regexp: '^\s*sandbox_image\s*='
-    line: '    sandbox_image = "registry.k8s.io/pause:3.10"'
+    line: '    sandbox_image = "{{ __kubernetes_pause_image }}"'
   notify: Kubernetes | Restart containerd
 
 - name: Ensure containerd is enabled and started

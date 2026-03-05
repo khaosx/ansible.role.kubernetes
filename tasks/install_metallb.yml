@@ -8,9 +8,16 @@
   changed_when: false
   failed_when: false
 
+- name: Get latest MetalLB release
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/metallb/metallb/releases/latest
+    return_content: true
+  register: __kubernetes_metallb_release
+  when: __kubernetes_metallb_namespace.rc != 0
+
 - name: Install MetalLB
   ansible.builtin.command: >
-    kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v{{ kubernetes_metallb_version }}/config/manifests/metallb-native.yaml
+    kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/{{ __kubernetes_metallb_release.json.tag_name }}/config/manifests/metallb-native.yaml
     --kubeconfig /etc/kubernetes/admin.conf
   register: __kubernetes_metallb_install
   changed_when: "'created' in __kubernetes_metallb_install.stdout or 'configured' in __kubernetes_metallb_install.stdout"

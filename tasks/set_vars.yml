@@ -4,3 +4,17 @@
     gather_subset: min
   when: not ansible_facts.keys() | list |
     intersect(__kubernetes_required_facts) == __kubernetes_required_facts
+
+- name: Set Vars | Detect latest stable Kubernetes version
+  ansible.builtin.uri:
+    url: https://dl.k8s.io/release/stable.txt
+    return_content: true
+  register: __kubernetes_stable_version
+  run_once: true
+  when: kubernetes_version == ""
+
+- name: Set Vars | Set Kubernetes version from latest stable
+  ansible.builtin.set_fact:
+    kubernetes_version: "{{ __kubernetes_stable_version.content | trim | regex_replace('^v(\\d+\\.\\d+).*', '\\1') }}"
+  run_once: true
+  when: kubernetes_version == ""

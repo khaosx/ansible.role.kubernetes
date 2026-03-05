@@ -4,13 +4,9 @@ argument_specs:
     short_description: Deploy a kubeadm-based Kubernetes cluster with optional networking and storage add-ons.
     options:
       kubernetes_version:
-        description: Kubernetes upstream repository major/minor version.
+        description: Kubernetes upstream repository major/minor version (determines apt repo branch).
         type: str
         default: "1.32"
-      kubernetes_apt_version:
-        description: Kubernetes package version selector for apt.
-        type: str
-        default: "1.32.*"
       kubernetes_cluster_name:
         description: Logical cluster name.
         type: str
@@ -42,18 +38,10 @@ argument_specs:
           - cilium
           - calico
           - flannel
-      kubernetes_cilium_version:
-        description: Cilium CLI/chart version.
-        type: str
-        default: "1.17.0"
       kubernetes_metallb_enabled:
         description: Enable MetalLB installation.
         type: bool
         default: true
-      kubernetes_metallb_version:
-        description: MetalLB manifest version.
-        type: str
-        default: "0.14.9"
       kubernetes_metallb_address_range:
         description: Address pool range used by MetalLB.
         type: str
@@ -62,10 +50,6 @@ argument_specs:
         description: Enable Traefik installation.
         type: bool
         default: true
-      kubernetes_traefik_version:
-        description: Traefik chart version.
-        type: str
-        default: "34.3.0"
       kubernetes_traefik_loadbalancer_ip:
         description: Fixed LoadBalancer IP for Traefik service.
         type: str
@@ -90,10 +74,6 @@ argument_specs:
         description: Enable cert-manager installation.
         type: bool
         default: true
-      kubernetes_cert_manager_version:
-        description: cert-manager manifest version.
-        type: str
-        default: "1.17.1"
       kubernetes_cert_manager_email:
         description: Email address used for ACME issuer registrations.
         type: str
@@ -115,10 +95,6 @@ argument_specs:
         description: Enable NFS CSI installation.
         type: bool
         default: true
-      kubernetes_nfs_csi_version:
-        description: NFS CSI Helm chart version.
-        type: str
-        default: v4.10.0
       kubernetes_ceph_enabled:
         description: Enable Ceph CSI installation.
         type: bool
@@ -146,10 +122,6 @@ argument_specs:
         description: Annotate ceph-rbd as default storage class.
         type: bool
         default: true
-      kubernetes_containerd_version:
-        description: Containerd package version selector for apt.
-        type: str
-        default: "1.7.*"
       kubernetes_primary_control_plane:
         description: Inventory hostname of the first control plane node.
         type: str
